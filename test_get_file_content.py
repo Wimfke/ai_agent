@@ -1,7 +1,11 @@
 from functions.get_file_content import get_file_content
+from config import CHAR_LIMIT
 
 print("Result for lorem.txt:")
-print(get_file_content("calculator", "lorem.txt"))
+content = get_file_content("calculator", "lorem.txt")
+assert len(content) >= CHAR_LIMIT
+assert f'truncated at {CHAR_LIMIT} characters' in content
+print(content)
 print()
 
 print("Result for main.py:")
