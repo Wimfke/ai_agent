@@ -6,7 +6,7 @@ from google import genai
 from google.genai import types, errors
 
 from prompts import system_prompt
-from call_function import available_functions
+from call_function import available_functions, call_function
 
 
 def print_verbose(args, usage):
@@ -46,9 +46,21 @@ def main():
     if args.verbose:
         print_verbose(args, usage)
     
+    function_results = []
+
     if response.function_calls:
-        for function_call in response.function_calls:
-            print(f"Calling function: {function_call.name}({function_call.args})")
+        for function_call in response.function_calls: 
+            function_call_result = call_function(function_call, verbose=args.verbose)
+            if not function_call_result.parts:
+                raise Exception
+            if function_call_result.parts[0].function_response == None:
+                raise Exception
+            if function_call_result.parts[0].function_response.response == None:
+                raise Exception
+            function_results.append(function_call_result.parts[0])
+            if args.verbose:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
+
     else:
         print("Response:")
         print(response.text)
