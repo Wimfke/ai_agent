@@ -4,13 +4,16 @@ import argparse
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types, errors
+
 from prompts import system_prompt
 from call_function import available_functions
+
 
 def print_verbose(args, usage):
     print(f"User prompt: {args.user_prompt}")
     print(f"Prompt tokens: {usage.prompt_token_count}")
     print(f"Response tokens: {usage.candidates_token_count}")
+    
 
 def main():
     parser = argparse.ArgumentParser(description="AI Code Assistant")
