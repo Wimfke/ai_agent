@@ -1,9 +1,10 @@
 import os
 import argparse
+import sys
 
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types, errors
+from google.genai import types
 
 from prompts import system_prompt
 from call_function import available_functions, call_function
@@ -29,42 +30,52 @@ def main():
         raise RuntimeError("GEMINI_API_KEY environment variable not set")
 
     client = genai.Client(api_key=api_key)
-    
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=messages,
-        config=types.GenerateContentConfig(
-            tools=[available_functions],
-            system_instruction=system_prompt,
-            temperature=0
+    got_response = False
+    for _ in range(20):
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=messages,
+            config=types.GenerateContentConfig(
+                tools=[available_functions],
+                system_instruction=system_prompt,
+                temperature=0
+            )
         )
-    )
-    if not response.usage_metadata:
-        raise RuntimeError("No usage metadata returned from Gemini API")
-    usage = response.usage_metadata
+        if not response.usage_metadata:
+            raise RuntimeError("No usage metadata returned from Gemini API")
+        usage = response.usage_metadata
 
-    if args.verbose:
-        print_verbose(args, usage)
-    
-    function_results = []
+        if args.verbose:
+            print_verbose(args, usage)
 
-    if response.function_calls:
-        for function_call in response.function_calls: 
-            function_call_result = call_function(function_call, verbose=args.verbose)
-            if not function_call_result.parts:
-                raise Exception
-            if function_call_result.parts[0].function_response == None:
-                raise Exception
-            if function_call_result.parts[0].function_response.response == None:
-                raise Exception
-            function_results.append(function_call_result.parts[0])
-            if args.verbose:
-                print(f"-> {function_call_result.parts[0].function_response.response}")
+        if response.candidates:
+            for candidate in response.candidates:
+                messages.append(candidate.content)
+        
+        function_results = []
 
-    else:
-        print("Response:")
-        print(response.text)
+        if response.function_calls:
+            for function_call in response.function_calls: 
+                function_call_result = call_function(function_call, verbose=args.verbose)
+                if not function_call_result.parts:
+                    raise Exception
+                if function_call_result.parts[0].function_response == None:
+                    raise Exception
+                if function_call_result.parts[0].function_response.response == None:
+                    raise Exception
+                function_results.append(function_call_result.parts[0])
+                if args.verbose:
+                    print(f"-> {function_call_result.parts[0].function_response.response}")
 
+            messages.append(types.Content(role="user", parts=function_results))
+
+        else:
+            print("Final response:")
+            print(response.text)
+            got_response = True
+            break
+    if got_response == False:
+        sys.exit("Error: Too long to find a solution")
 
 if __name__ == "__main__":
     main()
